@@ -1,4 +1,4 @@
-setwd("~/Desktop/Programming/HW/GroupMinProject/raw_data")
+setwd("~/Documents/GitHub/UScrime/raw data")
 
 library(xlsx)
 library(zoo) # for na.locf()
