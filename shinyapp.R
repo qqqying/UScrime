@@ -163,7 +163,3 @@ server <- function(input, output){
 
 shinyApp(ui=ui, server=server)
 
-
-# Data Source: https://ucr.fbi.gov/crime-in-the-u.s
-# rsconnect::deployApp("/Users/jessicahuang/Desktop/R/ShinyWebApp/UScrime")
-
