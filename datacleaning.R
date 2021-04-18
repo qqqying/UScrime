@@ -20,7 +20,7 @@ for(i in 1995:2019){
 }
 
 
-## generate dataset (rate) by state (1995-2004)
+## generate dataset (rate and total population) by state (1995-2004)
 for(i in 1995:2004){
   # assign dataset to "crime"
   assign("crime", get(paste0("crime", i)))
@@ -33,8 +33,20 @@ for(i in 1995:2004){
   crime <- cbind(states, crime)
   # change column name to state
   colnames(crime)[1] <- "State"
-  # extract rate rows for each state
-  final <- crime[grepl('(Rate|inhabitants)',crime$Area),]
+  # change column name to Data
+  colnames(crime)[2] <- "Data"
+  # change column name to Total
+  colnames(crime)[3] <- "Total"
+  # extract rate rows and state total rows for each state
+  if(i %in% 1995:1997){
+    final <- crime[grepl('^(inhabitants|State Total)',crime$Data),]
+    final[grepl('inhabitants',final$Data), 2] <- "Rate"
+    final[grepl('State Total',final$Data), 2] <- "Population"
+  } else {
+    final <- crime[grepl('(Rate|State Total)',crime$Data),]
+    final[grepl('Rate',final$Data), 2] <- "Rate"
+    final[grepl('State Total',final$Data), 2] <- "Population"
+  }
   
   # assign "final" to a new dataset
   assign(paste0("cr",i), final)
@@ -42,23 +54,24 @@ for(i in 1995:2004){
 }
 
 
-## remove NA row from 1995-1997
-cr1995 <- cr1995[duplicated(cr1995[,1])==TRUE,]
-cr1996 <- cr1996[duplicated(cr1996[,1])==TRUE,]
-cr1996 <- cr1996[-52,]
-cr1997 <- cr1997[duplicated(cr1997[,1])==TRUE,]
 
-
-## generate rate dataset by state (2005-2019)
+## generate dataset (rate and total population) by state (2005-2019)
 for(i in 2005:2019){
   # assign dataset to "crime"
   assign("crime", get(paste0("crime", i)))
   
   # fill missing value with previous values
   crime$State <- na.locf(crime$State, na.rm=FALSE)
-  # extract rate rows for each state
-  final <- crime[grepl('Rate',crime[,3]),]
-  
+  # extract rate rows and state total rows for each state
+  final <- crime[which(grepl('Rate',crime[,3]) | grepl('State Total',crime[,2])),]
+  # change column name to Data
+  colnames(final)[2] <- "Data"
+  final <- final[,-3]
+  # change column name to Total
+  colnames(final)[3] <- "Total"
+  #
+  final[which(grepl('Rate',final$Data)|is.na(final$Data)), 2] <- "Rate"
+  final[grepl('State Total',final$Data), 2] <- "Population"
   # assign "final" to a new dataset
   assign(paste0("cr",i), final)
 }
@@ -70,15 +83,13 @@ for(i in 1995:2019){
   assign("crime", get(paste0("cr", i)))
   # select specific columns
   if(i %in% 1995:1998){
-    crime <- crime[,c(1,6,8:11,7,12:14)]
+    crime <- crime[,c(1:3,6,8:11,7,12:14)]
   } else if(i %in% 1999:2002) {
-    crime <- crime[,c(1,6,8:11,7,13:15)]
-  } else if(i %in% c(2003,2004)) {
-    crime <- crime[,c(1,4:12)]
-  } else if(i %in% c(2005:2012, 2017:2019)) {
-    crime <- crime[,c(1,5:13)]
+    crime <- crime[,c(1:3,6,8:11,7,13:15)]
+  } else if(i %in% c(2003:2010, 2012, 2017:2018)) {
+    crime <- crime[,c(1:12)]
   } else if(i %in% 2013:2016) {
-    crime <- crime[,c(1,5:7,9:14)]
+    crime <- crime[,c(1:6, 8:13)]
   }
   # add "Year" column
   crime$Year <- i
@@ -89,7 +100,7 @@ for(i in 1995:2019){
   # set row names to NULL
   rownames(crime) <- NULL
   # set column names
-  colnames(crime) <- c("State","Violent.crime","Murder.and.nonnegligent.manslaughter"
+  colnames(crime) <- c("State","Data", "Total","Violent.crime","Murder.and.nonnegligent.manslaughter"
                        ,"Rape" ,"Robbery" ,"Aggravated.assault" ,"Property.crime"                       
                        ,"Burglary" ,"Larceny.theft" ,"Motor.vehicle.theft" ,"Year" )
   
@@ -106,23 +117,26 @@ uscrime <- rbind(cr1995, cr1996, cr1997, cr1998, cr1999,
                  cr2010, cr2011, cr2012, cr2013, cr2014,
                  cr2015, cr2016, cr2017, cr2018, cr2019)
 
-# remove . in one cell
-uscrime$Property.crime[uscrime$State=="NEWHAMPSHIRE" & uscrime$Year==1995] <- "2540.9"
-
-# calculate one missing variable by definition in Year 2000
-na20 <- crime2000[which(crime2000$Area=="CONNECTICUT")+8,]
-na20$Burglary <- as.numeric(na20$Burglary)
-na20$Larceny.theft <- as.numeric(na20$Larceny.theft)
-na20$Motor.vehicle.theft <- as.numeric(na20$Motor.vehicle.theft)
-na20$Population <- as.numeric(na20$Population)
-uscrime$Property.crime[uscrime$State=="CONNECTICUT" & uscrime$Year==2000] <- 
-  round(((na20$Burglary+na20$Larceny.theft+na20$Motor.vehicle.theft)/na20$Population)*10^5, 1)
+# remove typo in two cells
+uscrime$Property.crime[uscrime$State=="NEWHAMPSHIRE" & uscrime$Year==1995 & uscrime$Data=="Rate"] <- "2540.9"
+uscrime$Property.crime[uscrime$State=="ALABAMA" & uscrime$Year==1995 & uscrime$Data=="Population"] <- "179294"
 
 
 ## convert some character variables to numeric variables
-uscrime <- data.frame(uscrime$State, lapply(uscrime[,2:10], function(x) as.numeric(x)), uscrime$Year)
+uscrime <- data.frame(uscrime$State, uscrime$Data, lapply(uscrime[,3:12], function(x) as.numeric(x)), uscrime$Year)
+
+
+## Rename column name
 colnames(uscrime)[1] <- "State"
-colnames(uscrime)[11] <- "Year"
+colnames(uscrime)[2] <- "Data"
+colnames(uscrime)[13] <- "Year"
+
+# calculate one missing variable by definition in Year 2000
+uscrime$Property.crime[uscrime$State=="CONNECTICUT" & uscrime$Year==2000 & uscrime$Data=="Population"] <- 99033
+uscrime$Property.crime[uscrime$State=="CONNECTICUT" & uscrime$Year==2000 & uscrime$Data=="Rate"] <-   round((99033/3405565)*10^5, 1)
+
+
+
 
 
 ## save file
